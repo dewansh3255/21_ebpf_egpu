@@ -1,0 +1,15 @@
+# .gitignore
+
+# Environments
+.env
+.venv
+env/
+venv/
+__pycache__/
+*.pyc
+
+# Data and Models
+data/
+models/
+*.pth
+*.pt
