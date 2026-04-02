@@ -33,8 +33,8 @@ except ImportError:
 
 BPF_PROGRAM = r"""
 #include <uapi/linux/ptrace.h>
-#include <net/sock.h>
-#include <linux/tcp.h>
+
+
 
 // Event structure for network operations
 struct net_event_t {
@@ -66,8 +66,8 @@ BPF_HASH(net_xmit_count, u32, u64);
 BPF_PERF_OUTPUT(net_events);
 
 // --- TCP sendmsg ---
-int trace_tcp_sendmsg(struct pt_regs *ctx, struct sock *sk,
-                       struct msghdr *msg, size_t size)
+int trace_tcp_sendmsg(struct pt_regs *ctx, void *sk,
+                       void *msg, size_t size)
 {
     u32 pid = bpf_get_current_pid_tgid() >> 32;
     u64 ts = bpf_ktime_get_ns();

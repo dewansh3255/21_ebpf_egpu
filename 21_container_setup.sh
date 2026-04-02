@@ -25,7 +25,7 @@ create_dockerfile() {
     cat > "${PROJECT_DIR}/Dockerfile" << 'DOCKERFILE_EOF'
 # Group 21 - Containerized ML Workload Environment
 # Base: NVIDIA CUDA with cuDNN for GPU support
-FROM nvidia/cuda:12.2.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # Avoid interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive
@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cu121 \
     torch \
     torchvision \
     matplotlib \

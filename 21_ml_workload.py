@@ -202,7 +202,7 @@ def main():
         if torch.cuda.is_available():
             print(f"GPU: {torch.cuda.get_device_name(device)}")
             print(f"GPU Memory: "
-                  f"{torch.cuda.get_device_properties(device).total_mem / 1e9:.1f} GB")
+                  f"{torch.cuda.get_device_properties(device).total_memory / 1e9:.1f} GB")
         print("=" * 60)
 
     # Data

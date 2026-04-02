@@ -253,7 +253,7 @@ class CPUProfiler:
         ctx_counts = b["ctx_switch_count"]
         total = 0
         for cpu_id, count in sorted(ctx_counts.items(),
-                                     key=lambda x: x.key.value):
+                                     key=lambda x: x[0].value):
             print(f"  CPU {cpu_id.value}: {count.value} switches")
             total += count.value
         print(f"  Total: {total} switches")
