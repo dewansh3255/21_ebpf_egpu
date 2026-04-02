@@ -23,12 +23,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
-RUN pip3 install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cu121 \
-    torch \
-    torchvision \
-    matplotlib \
-    numpy \
-    psutil
+RUN pip3 install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
+RUN pip3 install --no-cache-dir matplotlib numpy psutil
 
 # Set working directory
 WORKDIR /workspace
