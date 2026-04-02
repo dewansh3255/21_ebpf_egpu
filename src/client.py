@@ -60,7 +60,7 @@ class FederatedClient:
 
 
 # --- NETWORK LOGIC ---
-def run_network_client(client_id, server_url="http://localhost:8000"):
+def run_network_client(client_id, server_url="http://192.168.52.110:8000"):
     from dataset import get_cifar10_datasets
     print(f"Client {client_id} initializing data...")
     client_datasets, _ = get_cifar10_datasets(num_clients=2)
