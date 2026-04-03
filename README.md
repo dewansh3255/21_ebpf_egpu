@@ -2,13 +2,29 @@
 # Profiling CPU, Network Stack, and GPU Overheads in Containerized vs Non-Containerized ML Workloads using eBPF
 
 ## Project Overview
-This project profiles the performance overhead introduced by containerization (Docker with namespaces and cgroups) on ML training workloads running on multi-GPU servers. We use **eBPF** for CPU/kernel/network profiling and **nvidia-smi based GPU monitoring** to capture comprehensive system-level metrics.
+This project profiles the performance overhead introduced by containerization (Docker with namespaces and cgroups) on ML training workloads running on multi-GPU servers. We use **eBPF** for CPU/kernel/network profiling and **GPU monitoring** (currently nvidia-smi based, with eGPU integration planned) to capture comprehensive system-level metrics.
 
-The project compares **native (bare-metal)** vs **containerized (Docker)** execution of a PyTorch DDP ResNet-18 training workload on CIFAR-10, measuring:
-- **CPU scheduling latency** and context switches
-- **System call frequency** and latency distribution
-- **Network stack overhead** for DDP communication
-- **GPU utilization**, memory usage, and power consumption
+**Implementation Status:**
+
+✅ **Configuration A (main branch)**: Single-server multi-GPU profiling  
+✅ **Configuration B (objective-2-tcp branch)**: Two-laptop distributed TCP profiling  
+
+### Configuration A: Single-Server Multi-GPU (Current Branch)
+Compares **native (bare-metal)** vs **containerized (Docker)** execution of PyTorch DDP ResNet-18 training on CIFAR-10, measuring:
+- **CPU scheduling latency** and context switches (via `sched_switch` tracepoints)
+- **System call frequency** and latency distribution (via `sys_enter`/`sys_exit` tracepoints)
+- **Network stack overhead** for DDP communication (via TCP kprobes on `tcp_sendmsg`/`tcp_recvmsg`)
+- **GPU utilization**, memory usage, and power consumption (via nvidia-smi polling)
+
+### Configuration B: Distributed TCP Training (objective-2-tcp branch)
+Two-laptop federated learning setup with eBPF network profiling:
+- **Federated learning** over TCP/IP with FastAPI-based server-client architecture
+- **Network stack profiling** with eBPF kprobes on TCP send/receive paths (port 8000 filtering)
+- **GPU monitoring** with eBPF tracing of GPU IOCTL calls
+- **ResNet-18 on CIFAR-10** for gradient aggregation over TCP
+- Real-world distributed training scenario with network compression (zlib)
+
+**Model Choice:** ResNet-18 selected due to GPU memory constraints on distributed laptops (ResNet-50 originally planned but not feasible on available hardware).
 
 ## Team — Group 21
 - Dewansh Khandelwal
@@ -59,6 +75,8 @@ sudo systemctl restart docker
 ```
 
 ## Project Structure
+
+### Main Branch (Configuration A)
 ```
 21_ebpf_egpu/
 ├── README.md                       # This file
@@ -82,9 +100,38 @@ sudo systemctl restart docker
     └── container_*.png             # Visualization plots for container
 ```
 
+### objective-2-tcp Branch (Configuration B)
+```
+21_ebpf_egpu/
+├── src/
+│   ├── client.py                   # Federated learning client (runs on each laptop)
+│   ├── server.py                   # FastAPI-based aggregation server
+│   ├── main.py                     # Launcher script
+│   └── dataset.py                  # CIFAR-10 data partitioning
+│
+└── monitor/
+    ├── monitor_network.py          # eBPF TCP send/recv profiler (port 8000)
+    ├── monitor_network_k.py        # Enhanced network monitoring
+    ├── monitor_gpu.py              # eBPF GPU IOCTL tracing
+    ├── analyze_trace.py            # Post-processing analysis
+    └── loader.py                   # Data loading utilities
+```
+
 ## Usage
 
-### Quick Start (Recommended)
+### Switching Between Configurations
+
+```bash
+# For single-server containerization profiling (Config A)
+git checkout main
+
+# For distributed TCP training profiling (Config B)
+git checkout objective-2-tcp
+```
+
+### Configuration A: Single-Server Multi-GPU (main branch)
+
+**Quick Start:**
 
 **1. Build the Docker image:**
 ```bash
@@ -111,6 +158,39 @@ This will generate visualization plots in the `results/` directory:
 - `native_gpu_timeline.png` / `container_gpu_timeline.png` — GPU utilization and power over time
 - `native_syscall_counts.png` / `container_syscall_counts.png` — Top system calls by frequency
 - `native_net_latency.png` / `container_net_latency.png` — Network latency distribution
+
+### Configuration B: Distributed TCP Training (objective-2-tcp branch)
+
+**Setup:**
+
+```bash
+# Switch to the distributed TCP branch
+git checkout objective-2-tcp
+
+# On Server Laptop (e.g., 192.168.52.110)
+cd src
+python3 server.py
+
+# On Client Laptop
+cd src
+python3 client.py
+
+# In separate terminals, run eBPF monitors:
+# Terminal 1: Network monitoring
+sudo python3 monitor/monitor_network.py
+
+# Terminal 2: GPU monitoring
+sudo python3 monitor/monitor_gpu.py
+
+# Analyze results
+python3 monitor/analyze_trace.py
+```
+
+**Architecture:**
+- **Federated Learning**: Clients train locally, send gradients to server for aggregation
+- **Network Profiling**: eBPF traces on `tcp_sendmsg`/`tcp_recvmsg` (port 8000)
+- **Compression**: zlib-based gradient compression to reduce TCP overhead
+- **Synchronization**: Round-based barrier synchronization via REST API
 
 ### Individual Tools
 
@@ -152,27 +232,64 @@ torchrun --nproc_per_node=2 21_ml_workload.py --gpus 2 --epochs 5
 
 ## Methodology
 
+### Configuration A: Single-Server Multi-GPU Profiling (main branch)
+
 The profiling pipeline follows these steps:
 
 1. **Start eBPF profilers** on the host system:
-   - CPU scheduler tracepoints (`sched:sched_switch`, `sched:sched_wakeup`)
-   - Syscall entry/exit hooks (`raw_syscalls:sys_enter`, `raw_syscalls:sys_exit`)
-   - Network stack tracepoints (`net:net_dev_start_xmit`, `net:netif_receive_skb`)
+   - **CPU scheduler** tracepoints (`sched:sched_switch`) — context switches, scheduling delays
+   - **Syscall interface** hooks (`raw_syscalls:sys_enter`, `raw_syscalls:sys_exit`) — syscall frequency and latency
+   - **Network stack** kprobes (`tcp_sendmsg`, `tcp_recvmsg`) — TCP send/receive overhead for DDP AllReduce
 
-2. **Start GPU monitor** polling nvidia-smi at 0.5s intervals
+2. **Start GPU monitor** polling nvidia-smi at 0.5s intervals for utilization, memory, and power metrics
 
-3. **Run ML workload** (ResNet-18 training on CIFAR-10):
-   - Native: Direct execution on host
-   - Container: Execution inside Docker with `--gpus all` and namespace isolation
+3. **Run ML workload** (ResNet-18 training on CIFAR-10 with PyTorch DDP):
+   - **Native**: Direct execution on host (bare-metal)
+   - **Containerized**: Execution inside Docker with `--gpus all`, namespace isolation, and cgroup resource controls
 
-4. **Collect profiling data** from all tools (CSV + JSON format)
+4. **Collect profiling data** from all tools in timestamped CSV/JSON format
 
 5. **Compare metrics** between native and containerized runs:
-   - Training time (wall clock)
-   - CPU scheduling overhead
-   - System call patterns and latency
-   - Network communication overhead (for multi-GPU DDP)
+   - Training time (wall clock) and per-epoch duration
+   - CPU scheduling overhead and context switch frequency
+   - System call patterns and latency distribution
+   - Network communication overhead for multi-GPU DDP (AllReduce via NCCL over PCIe)
    - GPU utilization and power consumption
+
+### Configuration B: Distributed TCP Training Profiling (objective-2-tcp branch)
+
+Federated learning architecture with network-level profiling:
+
+1. **Server setup** (Laptop 1):
+   - FastAPI-based aggregation server receives gradient updates from clients
+   - Maintains global ResNet-18 model
+   - Performs FedAvg aggregation after each round
+   - Evaluates global model on CIFAR-10 test set
+
+2. **Client setup** (Laptop 2):
+   - Trains local ResNet-18 replica on data partition (5000 images)
+   - Sends compressed gradients to server via HTTP POST (zlib compression)
+   - Receives updated global weights after aggregation
+   - 3 local epochs per round, 10 global rounds
+
+3. **eBPF network profiling**:
+   - `monitor_network.py`: Traces TCP send/recv on port 8000 (server port)
+   - Captures: timestamp, direction (send/recv), payload size, IP addresses, PID/TID
+   - CSV output with microsecond timestamps for latency analysis
+
+4. **eBPF GPU profiling**:
+   - `monitor_gpu.py`: Traces GPU IOCTL system calls
+   - Correlates GPU activity with network events
+   - Identifies GPU idle time during gradient transmission
+
+**Alignment with Proposal:**
+- ✅ **Objective 1**: Containerization overhead quantification (Config A) — **Fully Implemented**
+- ✅ **Objective 2**: TCP network stack profiling (Config B, two-laptop setup) — **Fully Implemented**
+- ✅ **Objective 3**: Cross-scenario comparison — **Data collected, analysis in progress**
+- ⏳ **eGPU Integration**: GPU-side PTX injection for kernel-level instrumentation — **Planned for future work**
+
+**Model Selection Rationale:**
+ResNet-18 selected instead of ResNet-50 due to GPU memory constraints on laptops used for distributed training (Configuration B). ResNet-18 provides sufficient complexity for profiling containerization and network overhead while fitting within available GPU memory (typical laptop GPUs: 4-6GB VRAM).
 
 ## Output Files
 
@@ -195,11 +312,14 @@ Visualization plots (generated by `21_plot_results.py`):
 ## Key Features
 
 ✅ **eBPF-based profiling** — Zero-overhead kernel-level tracing without modifying application code  
-✅ **Multi-GPU support** — PyTorch DDP (DistributedDataParallel) training with 1-4 GPUs  
+✅ **Multi-GPU support** — PyTorch DDP (DistributedDataParallel) training on single-server multi-GPU setup  
+✅ **Distributed TCP profiling** — Two-laptop federated learning with network stack instrumentation  
 ✅ **Host-side monitoring** — Profilers run on host to capture container overhead accurately  
-✅ **Comprehensive metrics** — CPU, syscalls, network stack, and GPU utilization  
-✅ **Automated pipeline** — Single-command execution for reproducible experiments  
+✅ **Comprehensive metrics** — CPU, syscalls, network stack (TCP send/recv), and GPU utilization  
+✅ **Automated pipeline** — Single-command execution for reproducible experiments (Config A)  
+✅ **Network compression** — zlib-based gradient compression for realistic distributed training (Config B)  
 ✅ **Visualization** — Auto-generated plots for comparative analysis  
+✅ **Two configurations** — Single-server containerization study + distributed TCP overhead study  
 
 ## Troubleshooting
 
@@ -237,7 +357,40 @@ python3 21_ml_workload.py --gpus 1 --batch-size 64
 - PyTorch DDP: https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
 - NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
 
+## Project Roadmap
+
+### ✅ Configuration A (main branch) — Completed
+- [x] Single-server multi-GPU profiling infrastructure
+- [x] eBPF-based CPU, syscall, and network stack profilers
+- [x] Native vs containerized comparison methodology
+- [x] ResNet-18 DDP workload on CIFAR-10
+- [x] Automated visualization pipeline
+- [x] Docker containerization with GPU passthrough
+- [x] Comprehensive metrics collection (CPU, syscalls, network, GPU)
+
+### ✅ Configuration B (objective-2-tcp branch) — Completed
+- [x] Two-laptop distributed federated learning setup
+- [x] FastAPI-based server-client architecture
+- [x] eBPF TCP network profiling (port 8000 filtering)
+- [x] eBPF GPU IOCTL tracing
+- [x] Network compression (zlib) for gradient transmission
+- [x] Round-based synchronization mechanism
+- [x] ResNet-18 on CIFAR-10 with data partitioning
+
+### 🔄 Phase 3 (Future Work) — Planned
+- [ ] eGPU integration for GPU kernel instrumentation via PTX injection
+- [ ] GPU-kernel timeline correlation with CPU-side eBPF events
+- [ ] Unified cross-scenario comparison dashboard (Objectives 1+2+3)
+- [ ] Extended models if more powerful GPUs become available (ResNet-50, BERT-base)
+- [ ] Performance optimization recommendations based on profiling data
+
+### 📊 Current Analysis Status
+- [x] Configuration A: Data collected, visualizations generated
+- [x] Configuration B: Data collected, network traces captured
+- [ ] Cross-configuration comparative analysis (in progress)
+- [ ] Final report with recommendations (in progress)
+
 ---
 
 **Group 21 — Graduate Research Seminar (GRS) Project**  
-*Profiling Containerized ML Workloads with eBPF*
+*Profiling CPU, Network Stack, and GPU Overheads in Containerized ML Workloads*
