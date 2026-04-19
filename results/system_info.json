@@ -1,0 +1,15 @@
+{
+  "hostname": "gpu1",
+  "kernel": "5.15.0-161-generic",
+  "os": "Linux-5.15.0-161-generic-x86_64-with-glibc2.35",
+  "cpu_model": "\t: AMD EPYC 9354 32-Core Processor",
+  "cpu_count": 64,
+  "memory_gb": 503.6,
+  "gpus": [
+    "NVIDIA H100 NVL, 575.57.08, 95830 MiB",
+    "NVIDIA H100 NVL, 575.57.08, 95830 MiB"
+  ],
+  "docker_version": "Docker version 29.3.1, build c2be9cc",
+  "pytorch_version": "2.5.1+cu121",
+  "cuda_version": "12.1"
+}

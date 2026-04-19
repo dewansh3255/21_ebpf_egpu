@@ -24,8 +24,8 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 def plot_training_loss():
     """Plot 1: Training Loss per Epoch - Native vs Container"""
     epochs = list(range(1, 11))
-    native_loss = [1.6715, 1.2365, 1.0123, 0.8746, 0.7588, 0.6792, 0.6193, 0.5620, 0.5347, 0.5196]
-    container_loss = [1.6527, 1.2230, 0.9863, 0.8436, 0.7296, 0.6486, 0.5859, 0.5391, 0.5104, 0.4988]
+    native_loss = [1.6631, 1.2166, 0.9949, 0.8560, 0.7412, 0.6691, 0.6013, 0.5540, 0.5202, 0.5151]
+    container_loss = [1.6816, 1.2233, 1.0060, 0.8669, 0.7425, 0.6634, 0.6050, 0.5505, 0.5198, 0.5118]
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, native_loss, 'o-', color='#2196F3', linewidth=2, markersize=8, label='Native')
@@ -45,10 +45,10 @@ def plot_training_loss():
 def plot_training_accuracy():
     """Plot 2: Training & Test Accuracy per Epoch"""
     epochs = list(range(1, 11))
-    native_train_acc = [37.24, 54.64, 63.83, 68.93, 73.31, 76.15, 78.35, 80.31, 81.28, 82.14]
-    container_train_acc = [38.08, 55.61, 64.92, 69.97, 74.14, 77.14, 79.70, 81.08, 82.23, 82.65]
-    native_test_acc = [47.21, 58.30, 65.14, 66.73, 72.45, 74.64, 76.34, 78.68, 80.11, 80.31]
-    container_test_acc = [47.87, 60.12, 65.43, 69.64, 72.76, 76.53, 78.02, 79.42, 80.92, 81.19]
+    native_train_acc = [37.95, 55.72, 64.21, 69.63, 73.93, 76.19, 79.07, 80.25, 81.72, 81.84]
+    container_train_acc = [37.31, 55.60, 63.94, 69.06, 73.80, 76.54, 78.87, 80.72, 81.63, 81.89]
+    native_test_acc = [47.03, 57.65, 67.59, 67.06, 70.36, 72.84, 76.99, 79.45, 80.49, 81.14]
+    container_test_acc = [46.78, 56.40, 61.89, 61.89, 71.20, 74.53, 77.46, 79.31, 80.78, 81.06]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
@@ -80,8 +80,8 @@ def plot_training_accuracy():
 def plot_throughput():
     """Plot 3: Throughput (samples/sec) per Epoch"""
     epochs = list(range(1, 11))
-    native_throughput = [2053.7, 2205.3, 2265.6, 3120.8, 2348.9, 2180.9, 2490.9, 2322.4, 2292.4, 2399.6]
-    container_throughput = [2126.3, 1948.1, 2220.5, 2600.8, 2480.3, 2195.4, 1920.6, 2495.8, 2716.8, 2301.5]
+    native_throughput = [8023, 9919, 9863, 9887, 9794, 8968, 9201, 7826, 9931, 9323]
+    container_throughput = [7740, 8491, 8953, 8944, 8519, 8396, 8749, 8538, 7710, 8676]
 
     fig, ax = plt.subplots(figsize=(10, 6))
     x = np.arange(len(epochs))
@@ -111,15 +111,17 @@ def plot_throughput():
 def plot_epoch_time():
     """Plot 4: Per-Epoch Training Time"""
     epochs = list(range(1, 11))
-    native_time = [12.17, 11.34, 11.03, 8.01, 10.64, 11.46, 10.04, 10.76, 10.91, 10.42]
-    container_time = [11.76, 12.83, 11.26, 9.61, 10.08, 11.39, 13.02, 10.02, 9.20, 10.86]
+    native_time = [3.12, 2.52, 2.53, 2.53, 2.55, 2.79, 2.72, 3.19, 2.52, 2.68]
+    container_time = [3.23, 2.94, 2.79, 2.79, 2.93, 2.98, 2.86, 2.93, 3.24, 2.88]
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, native_time, 'o-', color='#2196F3', linewidth=2, markersize=8, label='Native')
     ax.plot(epochs, container_time, 's--', color='#FF5722', linewidth=2, markersize=8, label='Container')
 
-    ax.axhline(y=np.mean(native_time), color='#2196F3', linestyle=':', alpha=0.6)
-    ax.axhline(y=np.mean(container_time), color='#FF5722', linestyle=':', alpha=0.6)
+    ax.axhline(y=np.mean(native_time), color='#2196F3', linestyle=':', alpha=0.6,
+               label=f'Native avg: {np.mean(native_time):.2f}s')
+    ax.axhline(y=np.mean(container_time), color='#FF5722', linestyle=':', alpha=0.6,
+               label=f'Container avg: {np.mean(container_time):.2f}s')
 
     ax.set_xlabel('Epoch', fontsize=13)
     ax.set_ylabel('Time (seconds)', fontsize=13)
@@ -135,10 +137,10 @@ def plot_epoch_time():
 
 def plot_total_time_comparison():
     """Plot 5: Total Training Time + Overhead Summary"""
-    categories = ['Training\nTime (s)', 'Throughput\n(samples/s)', 'GPU Util\n(%)', 'GPU Power\n(W)']
-    native_vals = [118.3, 2368, 99.9, 213.8]
-    container_vals = [121.3, 2301, 99.9, 220.1]
-    overhead_pct = [2.5, -2.8, 0.0, 2.9]
+    categories = ['Training\nTime (s)', 'Throughput\n(avg samp/s)', 'GPU 0 Util\n(active %)', 'GPU 0 Power\n(avg W)']
+    native_vals = [31.8, 9274, 76.7, 158.4]
+    container_vals = [34.3, 8472, 74.1, 198.9]
+    overhead_pct = [7.9, -8.6, -3.4, 25.6]
 
     fig, axes = plt.subplots(1, 4, figsize=(16, 5))
 
@@ -148,8 +150,9 @@ def plot_total_time_comparison():
                       color=['#2196F3', '#FF5722'], alpha=0.85, width=0.5)
         ax.set_title(cat, fontsize=11, fontweight='bold')
         for bar, val in zip(bars, [nv, cv]):
+            fmt = f'{val:.1f}' if isinstance(val, float) else f'{val:,}'
             ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
-                    f'{val}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+                    fmt, ha='center', va='bottom', fontsize=10, fontweight='bold')
         oh_color = '#d32f2f' if oh > 0 else '#388e3c'
         oh_sign = '+' if oh >= 0 else ''
         ax.text(0.5, 0.02, f'Overhead: {oh_sign}{oh}%', transform=ax.transAxes,
@@ -164,48 +167,57 @@ def plot_total_time_comparison():
 
 
 def plot_gpu_utilization():
-    """Plot 6: GPU Utilization & Power over time (sampled summary)"""
-    # Sampled every ~10s from 1619 native records and 1661 container records
-    # GPU 0 data sampled at regular intervals
-    native_time_offsets = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 118]
-    native_gpu_util = [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]
-    native_power = [151.4, 188.2, 210.5, 225.3, 218.7, 215.2, 220.8, 218.4, 216.9, 219.3, 217.5, 215.8, 210.2]
-    native_temp = [81, 83, 84, 85, 85, 85, 86, 86, 86, 86, 86, 85, 85]
+    """Plot 6: GPU Utilization, Power & Temperature comparison (bar summary)"""
+    gpu_labels = ['GPU 0\n(Native)', 'GPU 1\n(Native)', 'GPU 0\n(Container)', 'GPU 1\n(Container)']
+    util_avg = [36.8, 39.0, 53.3, 56.5]
+    util_max = [97, 95, 96, 93]
+    power_avg = [158.4, 185.0, 198.9, 223.8]
+    power_max = [285, 326, 276, 312]
+    temp_avg = [39.0, 56.4, 45.4, 66.0]
+    temp_max = [49, 80, 53, 82]
 
-    container_time_offsets = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 121]
-    container_gpu_util = [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]
-    container_power = [155.8, 192.4, 215.6, 228.1, 222.3, 219.8, 224.5, 221.6, 220.1, 222.8, 220.3, 218.5, 213.8]
-    container_temp = [82, 84, 85, 86, 86, 86, 87, 87, 87, 87, 87, 86, 86]
+    colors = ['#2196F3', '#64B5F6', '#FF5722', '#FF8A65']
 
-    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=False)
+    fig, axes = plt.subplots(1, 3, figsize=(16, 6))
 
     # GPU Utilization
-    axes[0].plot(native_time_offsets, native_gpu_util, '-', color='#2196F3', linewidth=2, label='Native GPU 0')
-    axes[0].plot(container_time_offsets, container_gpu_util, '--', color='#FF5722', linewidth=2, label='Container GPU 0')
-    axes[0].set_ylabel('GPU Utilization (%)', fontsize=12)
-    axes[0].set_title('GPU Utilization Over Time', fontsize=13, fontweight='bold')
-    axes[0].legend(fontsize=10)
-    axes[0].set_ylim(95, 102)
-    axes[0].grid(True, alpha=0.3)
+    ax = axes[0]
+    x = np.arange(4)
+    bars = ax.bar(x, util_avg, color=colors, alpha=0.85, width=0.6)
+    for i, (bar, mx) in enumerate(zip(bars, util_max)):
+        ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
+                f'avg:{util_avg[i]:.1f}%\nmax:{mx}%', ha='center', va='bottom', fontsize=9)
+    ax.set_ylabel('GPU Utilization (%)', fontsize=12)
+    ax.set_title('GPU Utilization', fontsize=13, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(gpu_labels, fontsize=9)
+    ax.grid(True, alpha=0.3, axis='y')
 
     # Power
-    axes[1].plot(native_time_offsets, native_power, '-', color='#2196F3', linewidth=2, label='Native GPU 0')
-    axes[1].plot(container_time_offsets, container_power, '--', color='#FF5722', linewidth=2, label='Container GPU 0')
-    axes[1].set_ylabel('Power (W)', fontsize=12)
-    axes[1].set_title('GPU Power Draw Over Time', fontsize=13, fontweight='bold')
-    axes[1].legend(fontsize=10)
-    axes[1].grid(True, alpha=0.3)
+    ax = axes[1]
+    bars = ax.bar(x, power_avg, color=colors, alpha=0.85, width=0.6)
+    for i, (bar, mx) in enumerate(zip(bars, power_max)):
+        ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
+                f'avg:{power_avg[i]:.0f}W\nmax:{mx:.0f}W', ha='center', va='bottom', fontsize=9)
+    ax.set_ylabel('Power (W)', fontsize=12)
+    ax.set_title('GPU Power Draw', fontsize=13, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(gpu_labels, fontsize=9)
+    ax.grid(True, alpha=0.3, axis='y')
 
     # Temperature
-    axes[2].plot(native_time_offsets, native_temp, '-', color='#2196F3', linewidth=2, label='Native GPU 0')
-    axes[2].plot(container_time_offsets, container_temp, '--', color='#FF5722', linewidth=2, label='Container GPU 0')
-    axes[2].set_ylabel('Temperature (°C)', fontsize=12)
-    axes[2].set_xlabel('Time (seconds)', fontsize=12)
-    axes[2].set_title('GPU Temperature Over Time', fontsize=13, fontweight='bold')
-    axes[2].legend(fontsize=10)
-    axes[2].grid(True, alpha=0.3)
+    ax = axes[2]
+    bars = ax.bar(x, temp_avg, color=colors, alpha=0.85, width=0.6)
+    for i, (bar, mx) in enumerate(zip(bars, temp_max)):
+        ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
+                f'avg:{temp_avg[i]:.0f}°C\nmax:{mx}°C', ha='center', va='bottom', fontsize=9)
+    ax.set_ylabel('Temperature (°C)', fontsize=12)
+    ax.set_title('GPU Temperature', fontsize=13, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(gpu_labels, fontsize=9)
+    ax.grid(True, alpha=0.3, axis='y')
 
-    fig.suptitle('GPU Metrics: Native vs Container (NVIDIA H100 NVL)', fontsize=15, fontweight='bold')
+    fig.suptitle('GPU Metrics: Native vs Container (2× NVIDIA H100 NVL)', fontsize=15, fontweight='bold')
     fig.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR, "06_gpu_metrics.png"), dpi=150, bbox_inches='tight')
     plt.close(fig)
@@ -214,13 +226,9 @@ def plot_gpu_utilization():
 
 def plot_syscall_comparison():
     """Plot 7: Top Syscalls - Native vs Container"""
-    # Top 10 syscalls by count
-    syscall_names = ['gettid', 'poll', 'futex', 'read', 'close',
-                     'newfstatat', 'write', 'openat', 'ioctl', 'accept']
-    native_counts = [3609347, 2960629, 463068, 395931, 232337,
-                     210549, 183384, 142452, 126003, 104299]
-    container_counts = [3774924, 3068178, 394834, 385357, 248747,
-                        217360, 178427, 157760, 128876, 107566]
+    syscall_names = ['gettid', 'poll', 'futex', 'read', 'recvmsg', 'write', 'close', 'newfstatat']
+    native_counts = [5762441, 2973232, 712280, 548232, 251039, 204350, 198720, 187227]
+    container_counts = [4011335, 1873974, 632465, 289317, 23010, 128231, 195910, 181479]
 
     fig, ax = plt.subplots(figsize=(12, 7))
     y = np.arange(len(syscall_names))
@@ -231,15 +239,18 @@ def plot_syscall_comparison():
                     label='Container', color='#FF5722', alpha=0.85)
     ax.set_xlabel('Count (millions)', fontsize=13)
     ax.set_ylabel('Syscall', fontsize=13)
-    ax.set_title('Top 10 Syscalls: Native vs Container', fontsize=15, fontweight='bold')
+    ax.set_title('Top Syscalls: Native vs Container', fontsize=15, fontweight='bold')
     ax.set_yticks(y)
     ax.set_yticklabels(syscall_names, fontsize=11)
     ax.legend(fontsize=12)
     ax.grid(True, alpha=0.3, axis='x')
 
-    # Add total counts annotation
-    ax.text(0.98, 0.02, f'Total: Native={9521613:,}  Container={9766704:,}  (+2.6%)',
-            transform=ax.transAxes, ha='right', va='bottom', fontsize=10,
+    native_total = 11926534
+    container_total = 8180511
+    native_rate = native_total / 61.1
+    container_rate = container_total / 44.1
+    ax.text(0.98, 0.02, f'Rate: Native={native_rate:,.0f}/s  Container={container_rate:,.0f}/s  |  Unique types: Native=121, Container=167',
+            transform=ax.transAxes, ha='right', va='bottom', fontsize=9,
             bbox=dict(boxstyle='round,pad=0.3', facecolor='lightyellow', alpha=0.8))
 
     fig.tight_layout()
@@ -249,25 +260,16 @@ def plot_syscall_comparison():
 
 
 def plot_syscall_latency():
-    """Plot 8: Syscall Average Latency Comparison"""
-    syscall_names = ['gettid', 'poll', 'futex', 'read', 'close',
-                     'newfstatat', 'write', 'openat', 'ioctl', 'accept']
-    # Average latency in microseconds
-    native_avg_us = [0.368, 849632.7, 3619621.8, 17.943, 0.941,
-                     3.030, 7.124, 129.052, 108.526, 9.590]
-    container_avg_us = [0.375, 1022983.8, 4755975.1, 356070.2, 0.931,
-                        4.249, 8.928, 122.247, 108.692, 9.742]
-
-    # Only plot non-blocking syscalls (exclude poll, futex, epoll which have huge waits)
-    plot_names = ['gettid', 'read', 'close', 'newfstatat', 'write', 'openat', 'ioctl', 'accept']
-    plot_native = [0.368, 17.943, 0.941, 3.030, 7.124, 129.052, 108.526, 9.590]
-    plot_container = [0.375, 356.070, 0.931, 4.249, 8.928, 122.247, 108.692, 9.742]
+    """Plot 8: Syscall Average Latency Comparison (non-blocking only)"""
+    plot_names = ['gettid', 'read', 'close', 'newfstatat', 'write', 'openat', 'ioctl']
+    native_lat = [0.7, 71.1, 1.3, 3.2, 9.5, 117.4, 117.0]
+    container_lat = [0.8, 161.6, 1.3, 4.7, 5.9, 84.5, 107.7]
 
     fig, ax = plt.subplots(figsize=(12, 6))
     y = np.arange(len(plot_names))
     height = 0.35
-    ax.barh(y - height/2, plot_native, height, label='Native', color='#2196F3', alpha=0.85)
-    ax.barh(y + height/2, plot_container, height, label='Container', color='#FF5722', alpha=0.85)
+    ax.barh(y - height/2, native_lat, height, label='Native', color='#2196F3', alpha=0.85)
+    ax.barh(y + height/2, container_lat, height, label='Container', color='#FF5722', alpha=0.85)
     ax.set_xlabel('Average Latency (μs)', fontsize=13)
     ax.set_ylabel('Syscall', fontsize=13)
     ax.set_title('Syscall Average Latency (Non-Blocking): Native vs Container', fontsize=14, fontweight='bold')
@@ -285,9 +287,8 @@ def plot_syscall_latency():
 def plot_network_comparison():
     """Plot 9: Network I/O - TCP Send/Recv Stats"""
     categories = ['TCP Send\nAvg Lat (μs)', 'TCP Recv\nAvg Lat (μs)', 'TCP Send\nCount', 'TCP Recv\nCount']
-    native_vals = [38.48, 5.95, 11445, 17959]
-    container_vals = [34.35, 6.72, 18007, 22127]
-    overhead_pct = [-10.7, 12.8, None, None]
+    native_vals = [30.4, 283.4, 6443, 110923]
+    container_vals = [35.7, 6.8, 1014, 2732]
 
     fig, axes = plt.subplots(1, 4, figsize=(16, 5))
 
@@ -297,7 +298,7 @@ def plot_network_comparison():
                       color=['#2196F3', '#FF5722'], alpha=0.85, width=0.5)
         ax.set_title(cat, fontsize=11, fontweight='bold')
         for bar, val in zip(bars, [nv, cv]):
-            fmt = f'{val:.2f}' if val < 100 else f'{val:,.0f}'
+            fmt = f'{val:.1f}' if val < 100 else f'{val:,.0f}'
             ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
                     fmt, ha='center', va='bottom', fontsize=10, fontweight='bold')
         ax.grid(True, alpha=0.3, axis='y')
@@ -310,11 +311,10 @@ def plot_network_comparison():
 
 
 def plot_sched_latency():
-    """Plot 10: CPU Scheduler Latency - eBPF profiled"""
-    metrics = ['Mean\nLatency (μs)', 'P95\nLatency (μs)', 'P99\nLatency (μs)']
-    native_vals = [19.71, 12.27, 19.05]
-    container_vals = [18.07, 12.37, 19.55]
-    overhead_pct = [-8.3, 0.8, 2.6]
+    """Plot 10: CPU Scheduler Latency + Context Switches"""
+    metrics = ['Mean\nLatency (μs)', 'P50\nLatency (μs)', 'P95\nLatency (μs)', 'P99\nLatency (μs)']
+    native_vals = [13.9, 4.0, 15.2, 22.7]
+    container_vals = [17.7, 3.6, 14.4, 21.5]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
@@ -338,25 +338,30 @@ def plot_sched_latency():
                 f'{val}', ha='center', va='bottom', fontsize=9)
 
     # Context switches
-    ctx_data = {
-        'Native': {'total': 5825652, 'per_sec': 44974, 'ml_pct': 88.13},
-        'Container': {'total': 5993381, 'per_sec': 46024, 'ml_pct': 87.45},
-    }
-    labels = list(ctx_data.keys())
-    totals = [ctx_data[l]['total'] / 1e6 for l in labels]
-    per_sec = [ctx_data[l]['per_sec'] for l in labels]
+    native_ctx = 3367166
+    container_ctx = 2508117
+    native_duration = 61.1
+    container_duration = 43.6
+    native_per_sec = native_ctx / native_duration
+    container_per_sec = container_ctx / container_duration
+
+    labels = ['Native', 'Container']
+    totals = [native_ctx / 1e6, container_ctx / 1e6]
+    per_sec = [native_per_sec, container_per_sec]
 
     bars = ax2.bar(labels, totals, color=['#2196F3', '#FF5722'], alpha=0.85, width=0.5)
     ax2.set_ylabel('Total Context Switches (millions)', fontsize=12)
     ax2.set_title('Context Switches (eBPF Tracepoints)', fontsize=13, fontweight='bold')
     for bar, total, ps in zip(bars, totals, per_sec):
         ax2.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
-                f'{total:.2f}M\n({ps:,}/s)', ha='center', va='bottom', fontsize=10, fontweight='bold')
+                f'{total:.2f}M\n({ps:,.0f}/s)', ha='center', va='bottom', fontsize=10, fontweight='bold')
     ax2.grid(True, alpha=0.3, axis='y')
 
-    overhead = (ctx_data['Container']['total'] - ctx_data['Native']['total']) / ctx_data['Native']['total'] * 100
-    ax2.text(0.5, 0.02, f'Container overhead: +{overhead:.1f}%', transform=ax2.transAxes,
-             ha='center', fontsize=11, color='#d32f2f', fontweight='bold')
+    native_rate_ctx = native_ctx / native_duration
+    container_rate_ctx = container_ctx / container_duration
+    rate_diff = (container_rate_ctx - native_rate_ctx) / native_rate_ctx * 100
+    ax2.text(0.5, 0.02, f'Rate: Native={native_rate_ctx:,.0f}/s  Container={container_rate_ctx:,.0f}/s  ({rate_diff:+.1f}%)',
+             transform=ax2.transAxes, ha='center', fontsize=10, color='#555555', fontweight='bold')
 
     fig.suptitle('CPU Scheduling: Native vs Container (eBPF Profiling)', fontsize=15, fontweight='bold')
     fig.tight_layout()
@@ -368,32 +373,42 @@ def plot_sched_latency():
 def plot_overhead_summary():
     """Plot 11: Overall Overhead Summary Table"""
     metrics = [
-        'Training Time (sec)', 'Throughput (samples/sec)', 'Sched Latency Mean (μs)',
-        'Sched Latency P95 (μs)', 'Sched Latency P99 (μs)', 'Total Syscalls',
-        'Unique Syscall Types', 'TCP Send Avg Lat (μs)', 'TCP Send Count',
-        'TCP Recv Avg Lat (μs)', 'TCP Recv Count', 'GPU Avg Utilization (%)',
-        'GPU Avg Power (W)'
+        'Training Time (sec)', 'Avg Throughput (samples/sec)',
+        'Final Test Accuracy (%)', 'Sched Latency Mean (μs)',
+        'Sched Latency P95 (μs)', 'Sched Latency P99 (μs)',
+        'Context Switches (total)', 'Total Syscalls',
+        'TCP Send Avg Lat (μs)', 'TCP Send Count',
+        'TCP Recv Avg Lat (μs)', 'TCP Recv Count',
+        'GPU 0 Avg Util (%)', 'GPU 0 Avg Power (W)',
+        'GPU 0 Avg Temp (°C)'
     ]
-    native_vals = ['118.3', '2,368', '19.71', '12.27', '19.05', '9,521,613',
-                   '122', '38.48', '11,445', '5.95', '17,959', '99.9', '213.8']
-    container_vals = ['121.3', '2,301', '18.07', '12.37', '19.55', '9,766,704',
-                      '172', '34.35', '18,007', '6.72', '22,127', '99.9', '220.1']
-    overheads = ['+2.5%', '-2.8%', '-8.3%', '+0.8%', '+2.6%', '+2.6%',
-                 '+41.0%', '-10.7%', '+57.3%', '+12.8%', '+23.2%', '+0.0%', '+2.9%']
+    native_vals = ['31.8', '9,274', '81.1', '13.9', '15.2', '22.7',
+                   '3,367,166', '11,926,534',
+                   '30.4', '6,443', '283.4', '110,923',
+                   '76.7', '158.4', '39.0']
+    container_vals = ['34.3', '8,472', '81.1', '17.7', '14.4', '21.5',
+                      '2,508,117', '8,180,511',
+                      '35.7', '1,014', '6.8', '2,732',
+                      '74.1', '198.9', '45.4']
+    overheads = ['+7.9%', '-8.6%', '+0.0%', '+27.3%', '-5.3%', '-5.3%',
+                 '-25.4%*', '-31.4%*',
+                 '+17.4%', '-84.3%*', '-97.6%*', '-97.5%*',
+                 '-3.4%', '+25.6%', '+16.4%']
 
-    fig, ax = plt.subplots(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(14, 9))
     ax.axis('off')
 
     colors_overhead = []
     for oh in overheads:
-        val = float(oh.replace('%', '').replace('+', ''))
-        if abs(val) < 1:
+        val_str = oh.replace('%', '').replace('+', '').replace('*', '')
+        val = float(val_str)
+        if abs(val) < 3:
             colors_overhead.append('#e8f5e9')
-        elif val > 5:
+        elif val > 10:
             colors_overhead.append('#ffcdd2')
         elif val > 0:
             colors_overhead.append('#fff9c4')
-        elif val < -5:
+        elif val < -10:
             colors_overhead.append('#c8e6c9')
         else:
             colors_overhead.append('#e8f5e9')
@@ -406,7 +421,7 @@ def plot_overhead_summary():
                      cellLoc='center', loc='center', colWidths=[0.35, 0.2, 0.2, 0.15])
     table.auto_set_font_size(False)
     table.set_fontsize(10)
-    table.scale(1, 1.6)
+    table.scale(1, 1.5)
 
     # Style header
     for j in range(4):
@@ -424,8 +439,9 @@ def plot_overhead_summary():
             table[i + 1, j].set_facecolor(base_color)
 
     ax.set_title('Overhead Summary: Native vs Container\n'
-                 'ResNet-18 / CIFAR-10 / 2×H100 NVL / 10 Epochs / eBPF Profiling',
-                 fontsize=14, fontweight='bold', pad=20)
+                 'ResNet-18 / CIFAR-10 / 2×H100 NVL / 10 Epochs / eBPF Profiling\n'
+                 '* = different profiling windows (native 61.1s vs container 43.6s); rates comparable',
+                 fontsize=13, fontweight='bold', pad=20)
     fig.tight_layout()
     fig.savefig(os.path.join(OUTPUT_DIR, "11_overhead_summary_table.png"), dpi=150, bbox_inches='tight')
     plt.close(fig)

@@ -17,7 +17,7 @@ set -e
 GPUS="${GPUS:-1}"
 EPOCHS="${EPOCHS:-5}"
 PROFILE_DURATION="${PROFILE_DURATION:-120}"
-RESULTS_DIR="results/native"
+RESULTS_DIR="${SCRIPT_DIR}/results/native"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MASTER_PORT="${MASTER_PORT:-29501}"
 
@@ -30,6 +30,9 @@ else
     PYTHON="$(which python3)"
     TORCHRUN="$(which torchrun 2>/dev/null || echo torchrun)"
 fi
+
+# ---- BCC requires system Python with PYTHONPATH (venv doesn't have bcc) ----
+BCC_PYTHON="env PYTHONPATH=/usr/lib/python3/dist-packages /usr/bin/python3"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -59,21 +62,21 @@ mkdir -p "${RESULTS_DIR}"
 # ---- Start Profilers in Background ----
 echo ""
 echo "[1/5] Starting CPU profiler..."
-${PYTHON} "${SCRIPT_DIR}/G_21_cpu_profiler.py" \
+${BCC_PYTHON} "${SCRIPT_DIR}/G_21_cpu_profiler.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_cpu_results.csv" &
 PID_CPU=$!
 echo "  PID: ${PID_CPU}"
 
 echo "[2/5] Starting syscall counter..."
-${PYTHON} "${SCRIPT_DIR}/G_21_syscall_counter.py" \
+${BCC_PYTHON} "${SCRIPT_DIR}/G_21_syscall_counter.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_syscall_results.csv" &
 PID_SYSCALL=$!
 echo "  PID: ${PID_SYSCALL}"
 
 echo "[3/5] Starting network profiler..."
-${PYTHON} "${SCRIPT_DIR}/G_21_net_profiler.py" \
+${BCC_PYTHON} "${SCRIPT_DIR}/G_21_net_profiler.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_net_results.csv" &
 PID_NET=$!

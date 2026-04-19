@@ -22,7 +22,7 @@ set -e
 GPUS="${GPUS:-1}"
 EPOCHS="${EPOCHS:-5}"
 PROFILE_DURATION="${PROFILE_DURATION:-120}"
-RESULTS_DIR="results/container"
+RESULTS_DIR="${SCRIPT_DIR}/results/container"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 IMAGE_NAME="group21-ml-profiling"
 CONTAINER_NAME="group21-profiled-run"
@@ -35,6 +35,9 @@ if [[ -f "${VENV_DIR}/bin/python3" ]]; then
 else
     PYTHON="$(which python3)"
 fi
+
+# ---- BCC requires system Python with PYTHONPATH (venv doesn't have bcc) ----
+BCC_PYTHON="env PYTHONPATH=/usr/lib/python3/dist-packages /usr/bin/python3"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -74,19 +77,19 @@ docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 # ---- Start Profilers on HOST (they need kernel access) ----
 echo ""
 echo "[1/5] Starting CPU profiler (host)..."
-${PYTHON} "${SCRIPT_DIR}/G_21_cpu_profiler.py" \
+${BCC_PYTHON} "${SCRIPT_DIR}/G_21_cpu_profiler.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_cpu_results.csv" &
 PID_CPU=$!
 
 echo "[2/5] Starting syscall counter (host)..."
-${PYTHON} "${SCRIPT_DIR}/G_21_syscall_counter.py" \
+${BCC_PYTHON} "${SCRIPT_DIR}/G_21_syscall_counter.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_syscall_results.csv" &
 PID_SYSCALL=$!
 
 echo "[3/5] Starting network profiler (host)..."
-${PYTHON} "${SCRIPT_DIR}/G_21_net_profiler.py" \
+${BCC_PYTHON} "${SCRIPT_DIR}/G_21_net_profiler.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_net_results.csv" &
 PID_NET=$!
@@ -151,6 +154,9 @@ echo ""
 echo "Stopping profilers..."
 kill ${PID_CPU} ${PID_SYSCALL} ${PID_NET} ${PID_GPU} 2>/dev/null || true
 wait ${PID_CPU} ${PID_SYSCALL} ${PID_NET} ${PID_GPU} 2>/dev/null || true
+
+# ---- Fix permissions on container-written result files ----
+chmod -R a+rw "${RESULTS_DIR}/" 2>/dev/null || true
 
 # ---- Capture Container Stats ----
 echo ""

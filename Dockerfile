@@ -30,8 +30,7 @@ RUN pip3 install --no-cache-dir matplotlib numpy psutil
 WORKDIR /workspace
 
 # Copy project files
-COPY 21_*.py /workspace/
-COPY 21_*.sh /workspace/
+COPY G_21_*.py /workspace/
 
 # Default command
-CMD ["python3", "21_ml_workload.py", "--gpus", "1", "--epochs", "5"]
+CMD ["python3", "G_21_ml_workload.py", "--gpus", "1", "--epochs", "5"]

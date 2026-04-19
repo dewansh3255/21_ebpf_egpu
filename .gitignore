@@ -1,8 +1,7 @@
 venv/
 data/
-results/**/*.csv
-results/**/*.json
 *.pdf
 gpu_trace_PHASE2_*.csv
 __pycache__/
 *.pyc
+results/**/*.csv

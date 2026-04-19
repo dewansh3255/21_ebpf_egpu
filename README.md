@@ -6,8 +6,10 @@
 This project profiles the performance overhead introduced by containerization (Docker) on ML training workloads running on multi-GPU servers. We use:
 
 - **eBPF** for CPU scheduling, syscall, and TCP network profiling (kernel-level, zero-overhead tracing)
-- **eGPU** (eBPF for GPUs) for GPU kernel launch and memory transfer tracing via `libcuda.so` uprobes
+- **eGPU-inspired GPU tracing** via eBPF uprobes on `libcuda.so` for GPU kernel launch and memory transfer monitoring
 - **nvidia-smi polling** for GPU utilization, power, and temperature monitoring
+
+> **Note on eGPU**: The real eGPU framework (Yang et al., HCDS '25) JIT-compiles eBPF bytecode into NVIDIA PTX and injects probes directly into GPU kernels. Building the full eGPU framework requires LLVM ≥15, custom bpftime userspace runtime, and Frida-based binary rewriting — which could not be compiled in our environment (host LLVM 14, Docker image LLVM 10). We adopt a **hybrid approach**: using standard eBPF uprobes on the CUDA driver API (`libcuda.so`) to trace GPU operations from the CPU side, combined with nvidia-smi polling. This captures the same API-level events (kernel launches, memory transfers) without PTX-level instrumentation.
 
 ### What We Measure
 
@@ -17,7 +19,7 @@ This project profiles the performance overhead introduced by containerization (D
 | System Calls | `G_21_syscall_counter.py` | eBPF tracepoints (`raw_syscalls:sys_enter/sys_exit`) |
 | Network Stack | `G_21_net_profiler.py` | eBPF kprobes (`tcp_sendmsg`, `tcp_recvmsg`) |
 | GPU Utilization | `G_21_gpu_monitor_nvidia.py` | nvidia-smi polling (util, mem, power, temp) |
-| GPU Kernel Tracing | `G_21_egpu_monitor.py` | eBPF uprobes on `libcuda.so` (`cuLaunchKernel`, `cuMemcpy*`) |
+| GPU Kernel Tracing | `G_21_egpu_monitor.py` | eBPF uprobes on `libcuda.so` (`cuLaunchKernel`, `cuMemcpy*`) — hybrid approach |
 | Network (FL) | `G_21_egpu_net_monitor.py` | eBPF kprobes + tracepoints (TCP + scheduler) |
 
 ### Experiment Setup
@@ -48,8 +50,8 @@ G_21_Part_B_eBPF_eGPU/
 ├── G_21_syscall_counter.py             # eBPF syscall counter with per-call latency
 ├── G_21_net_profiler.py                # eBPF TCP send/recv network profiler
 │
-│── eGPU Profiler (GPU via eBPF) ────────────────────────
-├── G_21_egpu_monitor.py                # eBPF uprobes on libcuda.so (cuLaunchKernel, cuMemcpy*)
+│── eGPU-Inspired GPU Profiler (eBPF uprobes) ───────────
+├── G_21_egpu_monitor.py                # eBPF uprobes on libcuda.so (cuLaunchKernel, cuMemcpy*) — hybrid approach
 ├── G_21_egpu_net_monitor.py            # eBPF network + scheduler monitor (FL scenario)
 │
 │── GPU Monitor (nvidia-smi) ────────────────────────────
@@ -83,32 +85,34 @@ G_21_Part_B_eBPF_eGPU/
 └── results/
     ├── native/                         # Native run CSVs + training JSON
     ├── container/                      # Container run CSVs + training JSON + inspect JSON
-    ├── plots/                          # 11 comparison PNGs + 2 analysis JSONs
     ├── plots_hardcoded/                # 11 hardcoded PNGs (from G_21_plot_hardcoded.py)
     └── system_info.json                # System specs
 ```
 
-## Key Results (Hardcoded Summary)
+## Key Results
 
 | Metric | Native | Container | Overhead |
 |---|---|---|---|
-| Training Time (sec) | 118.3 | 121.3 | **+2.5%** |
-| Throughput (samples/sec) | 2,368 | 2,301 | -2.8% |
-| GPU Avg Utilization (%) | 99.9 | 99.9 | +0.0% |
-| GPU Avg Power (W) | 213.8 | 220.1 | +2.9% |
-| Sched Latency Mean (us) | 19.71 | 18.07 | -8.3% |
-| Sched Latency P95 (us) | 12.27 | 12.37 | +0.8% |
-| Total Syscalls | 9,521,613 | 9,766,704 | +2.6% |
-| Unique Syscall Types | 122 | 172 | +41.0% |
-| TCP Send Avg Latency (us) | 38.48 | 34.35 | -10.7% |
-| TCP Recv Avg Latency (us) | 5.95 | 6.72 | +12.8% |
+| Training Time (sec) | 31.8 | 34.3 | **+7.9%** |
+| Throughput (samples/sec) | 9,274 | 8,472 | **-8.6%** |
+| Final Test Accuracy (%) | 81.1 | 81.1 | +0.0% |
+| GPU 0 Avg Util (active, %) | 76.7 | 74.1 | -3.4% |
+| GPU 0 Avg Power (W) | 158.4 | 198.9 | **+25.6%** |
+| Sched Latency Mean (μs) | 13.9 | 17.7 | +27.3% |
+| Sched Latency P95 (μs) | 15.2 | 14.4 | -5.3% |
+| Total Syscalls | 11,926,534 | 8,180,511 | -31.4%† |
+| Unique Syscall Types | 121 | 167 | **+38.0%** |
+| TCP Send Avg Latency (μs) | 30.4 | 35.7 | +17.4% |
+
+† Different profiling windows (native 61.1s vs container 43.6s); syscall rate is comparable.
 
 **Key Findings:**
-- Container overhead is minimal (~2.5% training time) on H100 NVL GPUs
-- GPU utilization is near-identical (99.9% both), GPU is the bottleneck, not containers
-- Syscall diversity increases (+41% unique types) due to container namespace management
-- CPU scheduling latency is comparable (P95 within 1%)
-- Network overhead varies: TCP send is faster in containers, TCP recv is slower
+- Container adds **~7.9% training time overhead** and **-8.6% throughput** on H100 NVL GPUs
+- GPU utilization during active training is near-identical (76.7% vs 74.1%) — GPU remains the bottleneck
+- GPU power consumption is **+25.6% higher** in container, likely due to Docker namespace initialization
+- Syscall diversity increases significantly (**+38% unique types**) due to container overlay FS and namespace management
+- CPU scheduling latency mean is slightly higher in container (+27.3%) but P95/P99 are comparable
+- Both configurations achieve identical final test accuracy (81.1%), confirming correctness
 
 ## Prerequisites
 
@@ -158,21 +162,24 @@ sudo ./G_21_run_container.sh --gpus 2 --epochs 10 --duration 180
 
 ### Run Individual Profilers
 
+> **Note**: eBPF profilers (CPU, syscall, network) require system Python with PYTHONPATH for BCC.
+> The GPU monitor uses the venv Python.
+
 ```bash
-# eBPF CPU profiler
-sudo python3 G_21_cpu_profiler.py --duration 60 --output cpu_results.csv
+# eBPF CPU profiler (must use system python3 + PYTHONPATH)
+sudo env PYTHONPATH=/usr/lib/python3/dist-packages python3 G_21_cpu_profiler.py --duration 60 --output cpu_results.csv
 
 # eBPF Syscall counter
-sudo python3 G_21_syscall_counter.py --duration 60 --output syscall_results.csv
+sudo env PYTHONPATH=/usr/lib/python3/dist-packages python3 G_21_syscall_counter.py --duration 60 --output syscall_results.csv
 
 # eBPF Network profiler
-sudo python3 G_21_net_profiler.py --duration 60 --output net_results.csv
+sudo env PYTHONPATH=/usr/lib/python3/dist-packages python3 G_21_net_profiler.py --duration 60 --output net_results.csv
 
-# GPU monitor (nvidia-smi)
-python3 G_21_gpu_monitor_nvidia.py --duration 60 --interval 0.1 --output gpu_results.csv
+# GPU monitor (nvidia-smi, uses venv Python)
+venv/bin/python3 G_21_gpu_monitor_nvidia.py --duration 60 --interval 0.1 --output gpu_results.csv
 
 # eGPU monitor (eBPF uprobes on libcuda.so)
-sudo python3 G_21_egpu_monitor.py
+sudo env PYTHONPATH=/usr/lib/python3/dist-packages python3 G_21_egpu_monitor.py
 ```
 
 ### Generate Plots
@@ -225,11 +232,12 @@ sudo python3 G_21_egpu_net_monitor.py
 - **Metrics**: TCP send/recv latency per packet, byte counts, process info
 - **Output**: CSV with timestamp, PID, comm, event_type, latency_ns, bytes
 
-### eGPU Monitor (`G_21_egpu_monitor.py`)
+### eGPU Monitor (`G_21_egpu_monitor.py`) — Hybrid Approach
 - **Technique**: eBPF uprobes on `libcuda.so` functions (`cuLaunchKernel`, `cuMemcpyHtoD_v2`, `cuMemcpyDtoH_v2`)
 - **Metrics**: GPU kernel launch events (COMPUTE_MATH) and memory transfer events (MEM_TRANSFER)
 - **Output**: CSV trace with timestamp, event type, duration
-- **Reference**: Based on eGPU paper (Yang et al., "eGPU: Extending eBPF Programmability to GPUs," HCDS '25)
+- **Reference**: Inspired by eGPU (Yang et al., "eGPU: Extending eBPF Programmability to GPUs," HCDS '25)
+- **Limitation**: Traces CUDA driver API calls from CPU side via uprobes (not PTX-level GPU kernel instrumentation). The full eGPU framework requires LLVM ≥15 and custom bpftime runtime which could not be built in our environment.
 
 ## Methodology
 
@@ -257,6 +265,14 @@ All 11 plots generated with hardcoded values from experiment results:
 9. **Network Comparison** — TCP send/recv latency and counts
 10. **Scheduler Latency** — Mean/P95/P99 + context switches
 11. **Overhead Summary Table** — All metrics in a single table
+
+## Limitations
+
+1. **eGPU Build**: The real eGPU framework (PTX-level GPU instrumentation) could not be built due to LLVM version constraints (requires ≥15, host has 14, Docker image has 10). We use a hybrid eBPF uprobe approach instead.
+2. **eBPF Root Access**: All eBPF profilers require root/sudo privileges, limiting deployment in locked-down environments.
+3. **Kernel Version**: BCC 0.18 on kernel 5.15 — some newer eBPF features (e.g., BPF LSM, ringbuf) are not available.
+4. **Single-Node Only**: Experiments run on one server with 2 GPUs. Multi-node distributed training overhead is not captured.
+5. **nvidia-smi Polling**: GPU metrics are sampled at 100ms intervals — sub-millisecond GPU events may be missed.
 
 ## References
 
