@@ -1,5 +1,5 @@
 #!/bin/bash
-# 21_run_native.sh
+# G_21_run_native.sh
 # Group 21 - GRS Project Part A
 #
 # Orchestrates the full profiling pipeline in NATIVE (non-containerized) mode.
@@ -7,7 +7,7 @@
 # and collects results.
 #
 # Usage:
-#   sudo ./21_run_native.sh [--gpus N] [--epochs E] [--duration D]
+#   sudo ./G_21_run_native.sh [--gpus N] [--epochs E] [--duration D]
 #
 # Authors: Dewansh Khandelwal, Palak Mishra, Sanskar Goyal, Yash Nimkar, Kunal Verma
 
@@ -19,6 +19,17 @@ EPOCHS="${EPOCHS:-5}"
 PROFILE_DURATION="${PROFILE_DURATION:-120}"
 RESULTS_DIR="results/native"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MASTER_PORT="${MASTER_PORT:-29501}"
+
+# ---- Resolve Python and torchrun from the venv ----
+VENV_DIR="${SCRIPT_DIR}/venv"
+if [[ -f "${VENV_DIR}/bin/python3" ]]; then
+    PYTHON="${VENV_DIR}/bin/python3"
+    TORCHRUN="${VENV_DIR}/bin/torchrun"
+else
+    PYTHON="$(which python3)"
+    TORCHRUN="$(which torchrun 2>/dev/null || echo torchrun)"
+fi
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -38,7 +49,7 @@ echo "============================================================"
 # ---- Check root ----
 if [ "$EUID" -ne 0 ]; then
     echo "ERROR: eBPF profilers require root privileges."
-    echo "Run with: sudo ./21_run_native.sh"
+    echo "Run with: sudo ./G_21_run_native.sh"
     exit 1
 fi
 
@@ -48,30 +59,30 @@ mkdir -p "${RESULTS_DIR}"
 # ---- Start Profilers in Background ----
 echo ""
 echo "[1/5] Starting CPU profiler..."
-python3 "${SCRIPT_DIR}/21_cpu_profiler.py" \
+${PYTHON} "${SCRIPT_DIR}/G_21_cpu_profiler.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_cpu_results.csv" &
 PID_CPU=$!
 echo "  PID: ${PID_CPU}"
 
 echo "[2/5] Starting syscall counter..."
-python3 "${SCRIPT_DIR}/21_syscall_counter.py" \
+${PYTHON} "${SCRIPT_DIR}/G_21_syscall_counter.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_syscall_results.csv" &
 PID_SYSCALL=$!
 echo "  PID: ${PID_SYSCALL}"
 
 echo "[3/5] Starting network profiler..."
-python3 "${SCRIPT_DIR}/21_net_profiler.py" \
+${PYTHON} "${SCRIPT_DIR}/G_21_net_profiler.py" \
     --duration "${PROFILE_DURATION}" \
     --output "${RESULTS_DIR}/21_net_results.csv" &
 PID_NET=$!
 echo "  PID: ${PID_NET}"
 
 echo "[4/5] Starting GPU monitor..."
-python3 "${SCRIPT_DIR}/21_gpu_monitor.py" \
+${PYTHON} "${SCRIPT_DIR}/G_21_gpu_monitor_nvidia.py" \
     --duration "${PROFILE_DURATION}" \
-    --interval 0.5 \
+    --interval 0.1 \
     --output "${RESULTS_DIR}/21_gpu_results.csv" &
 PID_GPU=$!
 echo "  PID: ${PID_GPU}"
@@ -87,13 +98,13 @@ echo "============================================================"
 WORKLOAD_START=$(date +%s%N)
 
 if [ "${GPUS}" -eq 1 ]; then
-    python3 "${SCRIPT_DIR}/21_ml_workload.py" \
+    ${PYTHON} "${SCRIPT_DIR}/G_21_ml_workload.py" \
         --gpus 1 \
         --epochs "${EPOCHS}" \
         --output "${RESULTS_DIR}/21_training_native.json"
 else
-    torchrun --nproc_per_node="${GPUS}" \
-        "${SCRIPT_DIR}/21_ml_workload.py" \
+    ${TORCHRUN} --nproc_per_node="${GPUS}" --master_port="${MASTER_PORT}" \
+        "${SCRIPT_DIR}/G_21_ml_workload.py" \
         --gpus "${GPUS}" \
         --epochs "${EPOCHS}" \
         --output "${RESULTS_DIR}/21_training_native.json"

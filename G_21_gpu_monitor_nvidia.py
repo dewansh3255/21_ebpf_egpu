@@ -239,8 +239,8 @@ def main():
     )
     parser.add_argument("--duration", type=int, default=60,
                         help="Monitoring duration in seconds (default: 60)")
-    parser.add_argument("--interval", type=float, default=0.5,
-                        help="Sampling interval in seconds (default: 0.5)")
+    parser.add_argument("--interval", type=float, default=0.1,
+                        help="Sampling interval in seconds (default: 0.1)")
     parser.add_argument("--output", type=str,
                         default="21_gpu_results.csv",
                         help="Output CSV file path")

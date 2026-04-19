@@ -86,11 +86,15 @@ int trace_tcp_sendmsg_ret(struct pt_regs *ctx)
     u64 latency = ts - *start;
     send_start.delete(&pid);
 
+    int ret = PT_REGS_RC(ctx);
+    u32 bytes = ret > 0 ? (u32)ret : 0;
+
     // Update aggregate stats
     u32 key = 0;
     struct net_stats_t *stats = tcp_send_stats.lookup(&key);
     if (stats) {
         stats->count += 1;
+        stats->total_bytes += bytes;
         stats->total_latency_ns += latency;
         if (latency < stats->min_latency_ns)
             stats->min_latency_ns = latency;
@@ -99,6 +103,7 @@ int trace_tcp_sendmsg_ret(struct pt_regs *ctx)
     } else {
         struct net_stats_t new_stats = {};
         new_stats.count = 1;
+        new_stats.total_bytes = bytes;
         new_stats.total_latency_ns = latency;
         new_stats.min_latency_ns = latency;
         new_stats.max_latency_ns = latency;
@@ -110,6 +115,7 @@ int trace_tcp_sendmsg_ret(struct pt_regs *ctx)
     event.pid = pid;
     event.timestamp = ts;
     event.latency_ns = latency;
+    event.bytes = bytes;
     event.event_type = 0;  // tcp_send
     bpf_get_current_comm(&event.comm, sizeof(event.comm));
     net_events.perf_submit(ctx, &event, sizeof(event));
@@ -137,11 +143,15 @@ int trace_tcp_recvmsg_ret(struct pt_regs *ctx)
     u64 latency = ts - *start;
     recv_start.delete(&pid);
 
+    int ret = PT_REGS_RC(ctx);
+    u32 bytes = ret > 0 ? (u32)ret : 0;
+
     // Update aggregate stats
     u32 key = 0;
     struct net_stats_t *stats = tcp_recv_stats.lookup(&key);
     if (stats) {
         stats->count += 1;
+        stats->total_bytes += bytes;
         stats->total_latency_ns += latency;
         if (latency < stats->min_latency_ns)
             stats->min_latency_ns = latency;
@@ -150,6 +160,7 @@ int trace_tcp_recvmsg_ret(struct pt_regs *ctx)
     } else {
         struct net_stats_t new_stats = {};
         new_stats.count = 1;
+        new_stats.total_bytes = bytes;
         new_stats.total_latency_ns = latency;
         new_stats.min_latency_ns = latency;
         new_stats.max_latency_ns = latency;
@@ -161,6 +172,7 @@ int trace_tcp_recvmsg_ret(struct pt_regs *ctx)
     event.pid = pid;
     event.timestamp = ts;
     event.latency_ns = latency;
+    event.bytes = bytes;
     event.event_type = 1;  // tcp_recv
     bpf_get_current_comm(&event.comm, sizeof(event.comm));
     net_events.perf_submit(ctx, &event, sizeof(event));
@@ -221,6 +233,7 @@ class NetworkProfiler:
             "comm": event.comm.decode("utf-8", errors="replace"),
             "event_type": EVENT_TYPES.get(event.event_type, "unknown"),
             "latency_ns": event.latency_ns,
+            "bytes": event.bytes,
         })
 
     def run(self):
@@ -306,7 +319,7 @@ class NetworkProfiler:
     def _save_results(self):
         with open(self.output_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=[
-                "timestamp_ns", "pid", "comm", "event_type", "latency_ns"
+                "timestamp_ns", "pid", "comm", "event_type", "latency_ns", "bytes"
             ])
             writer.writeheader()
             writer.writerows(self.events)
