@@ -20,14 +20,14 @@ This project profiles the performance overhead introduced by containerization (D
 | Network Stack | `G_21_net_profiler.py` | eBPF kprobes (`tcp_sendmsg`, `tcp_recvmsg`) |
 | GPU Utilization | `G_21_gpu_monitor_nvidia.py` | nvidia-smi polling (util, mem, power, temp) |
 | GPU Kernel Tracing | `G_21_egpu_monitor.py` | eBPF uprobes on `libcuda.so` (`cuLaunchKernel`, `cuMemcpy*`) — hybrid approach |
-| Network (FL) | `G_21_egpu_net_monitor.py` | eBPF kprobes + tracepoints (TCP + scheduler) |
+| Network (FL) | `Sanskar-Kunal/G_21_egpu_net_monitor.py` | eBPF kprobes + tracepoints (TCP + scheduler) |
 
 ### Experiment Setup
 
 - **Hardware**: 2x NVIDIA H100 NVL (95830 MiB each), AMD EPYC 9354 32-Core, 503.6 GB RAM
 - **Software**: Ubuntu 22.04, Kernel 5.15.0-161-generic, CUDA 12.1.1, PyTorch 2.5.1+cu121, Docker 29.3.1
 - **Workload**: ResNet-18 on CIFAR-10, 10 epochs, batch_size=128, PyTorch DDP across 2 GPUs
-- **Methodology**: 3 trials each for native and container, median trial selected
+- **Methodology**: Single trial run for each mode (native and container); results are from that run
 
 ## Team — Group 21
 
@@ -51,36 +51,38 @@ G_21_Part_B_eBPF_eGPU/
 ├── G_21_net_profiler.py                # eBPF TCP send/recv network profiler
 │
 │── eGPU-Inspired GPU Profiler (eBPF uprobes) ───────────
-├── G_21_egpu_monitor.py                # eBPF uprobes on libcuda.so (cuLaunchKernel, cuMemcpy*) — hybrid approach
-├── G_21_egpu_net_monitor.py            # eBPF network + scheduler monitor (FL scenario)
+├── G_21_egpu_monitor.py                        # eBPF uprobes on libcuda.so — hybrid approach
+├── Sanskar-Kunal/G_21_egpu_net_monitor.py     # eBPF network + scheduler monitor (FL scenario)
 │
-│── GPU Monitor (nvidia-smi) ────────────────────────────
-├── G_21_gpu_monitor_nvidia.py          # nvidia-smi based GPU polling (util, mem, power, temp)
+│── Data & Results ──────────────────────────────────────
+├── G_21_gpu_monitor_nvidia.py                  # nvidia-smi based GPU polling (util, mem, power, temp)
 │
 │── ML Workload ─────────────────────────────────────────
 ├── G_21_ml_workload.py                 # PyTorch DDP ResNet-18 on CIFAR-10 (multi-GPU)
 │
-│── Federated Learning (Partner) ────────────────────────
-├── G_21_federated_server.py            # FastAPI federated learning server (FedAvg)
-├── G_21_federated_client.py            # FL client (ResNet-18, gradient upload)
-├── G_21_federated_dataset.py           # CIFAR-10 data partitioning for FL
-├── G_21_federated_main.py              # Local FL simulation (2 clients, 3 rounds)
+│── Federated Learning (Partner — Sanskar-Kunal/) ──────
+├── Sanskar-Kunal/G_21_federated_server.py    # FastAPI federated learning server (FedAvg)
+├── Sanskar-Kunal/G_21_federated_client.py    # FL client (ResNet-18, gradient upload)
+├── Sanskar-Kunal/G_21_federated_dataset.py   # CIFAR-10 data partitioning for FL
+├── Sanskar-Kunal/G_21_federated_main.py      # Local FL simulation (2 clients, 3 rounds)
 │
 │── Orchestration Scripts ───────────────────────────────
-├── G_21_run_experiment.sh              # Master experiment runner (3 trials each)
-├── G_21_run_native.sh                  # Native profiling orchestrator
-├── G_21_run_container.sh               # Container profiling orchestrator
-├── G_21_container_setup.sh             # Docker image builder & container manager
-├── G_21_local_dry_run.sh               # FL dry run with eBPF monitoring
+├── G_21_run_experiment.sh                      # Master experiment runner
+├── G_21_run_native.sh                          # Native profiling orchestrator
+├── G_21_run_container.sh                       # Container profiling orchestrator
+├── G_21_container_setup.sh                     # Docker image builder & container manager
+├── Sanskar-Kunal/G_21_local_dry_run.sh        # FL dry run with eBPF monitoring
 │
 │── Analysis & Visualization ────────────────────────────
-├── G_21_compare_results.py             # Generate 11 comparison plots + JSON summaries
-├── G_21_analyze_cpu.py                 # CPU CSV analyzer with comparison mode
-├── G_21_plot_results.py                # Per-scenario plotting
-├── G_21_plot_hardcoded.py              # Hardcoded matplotlib plots (no CSV input)
-├── G_21_unified_timeline.py            # 3-row dashboard (GPU + CPU + Network)
+├── G_21_compare_results.py                     # Generate 11 comparison plots + JSON summaries
+├── G_21_analyze_cpu.py                         # CPU CSV analyzer with comparison mode
+├── G_21_plot_results.py                        # Per-scenario plotting
+├── G_21_plot_hardcoded.py                      # Hardcoded matplotlib plots (no CSV input)
+├── Sanskar-Kunal/G_21_unified_timeline.py     # 3-row dashboard (GPU + CPU + Network)
 │
-│── Data & Results ──────────────────────────────────────
+│── eGPU-Inspired GPU Profiler (eBPF uprobes) ───────────
+├── G_21_egpu_monitor.py                        # eBPF uprobes on libcuda.so — hybrid approach
+├── Sanskar-Kunal/G_21_egpu_net_monitor.py     # eBPF network + scheduler monitor (FL scenario)
 ├── data/cifar-10-batches-py/           # CIFAR-10 dataset
 └── results/
     ├── native/                         # Native run CSVs + training JSON
@@ -141,10 +143,11 @@ curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
 
 ## Usage
 
-### Run Full Experiment (3 trials native + 3 trials container)
+### Run Full Experiment
 
 ```bash
-sudo ./G_21_run_experiment.sh --gpus 2 --epochs 10
+sudo ./G_21_run_native.sh --gpus 2 --epochs 10 --duration 180
+sudo ./G_21_run_container.sh --gpus 2 --epochs 10 --duration 180
 ```
 
 ### Run Individual Components
@@ -195,24 +198,24 @@ python3 G_21_compare_results.py
 python3 G_21_analyze_cpu.py --compare results/native results/container
 ```
 
-### Federated Learning (Partner Component)
+### Federated Learning (Partner Component — Sanskar-Kunal/)
 
 ```bash
 # Local dry run with eBPF monitoring
-sudo ./G_21_local_dry_run.sh
+sudo ./Sanskar-Kunal/G_21_local_dry_run.sh
 
 # Or manually:
 # Terminal 1: Start FL server
-python3 G_21_federated_server.py
+python3 Sanskar-Kunal/G_21_federated_server.py
 
 # Terminal 2: Start FL client
-python3 G_21_federated_client.py
+python3 Sanskar-Kunal/G_21_federated_client.py
 
 # Terminal 3: Start eGPU monitor
-sudo python3 G_21_egpu_monitor.py
+sudo env PYTHONPATH=/usr/lib/python3/dist-packages python3 G_21_egpu_monitor.py
 
 # Terminal 4: Start network monitor
-sudo python3 G_21_egpu_net_monitor.py
+sudo env PYTHONPATH=/usr/lib/python3/dist-packages python3 Sanskar-Kunal/G_21_egpu_net_monitor.py
 ```
 
 ## eBPF Profiling Details
