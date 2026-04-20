@@ -5,3 +5,4 @@ gpu_trace_PHASE2_*.csv
 __pycache__/
 *.pyc
 results/**/*.csv
+G_21_plots_explained.md
