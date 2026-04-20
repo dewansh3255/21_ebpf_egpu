@@ -374,11 +374,11 @@ def plot_option_c(n_gpu, n_sched, n_ctx, n_act,
                   c_gpu, c_sched, c_ctx, c_act,
                   sched_max, ctx_max):
     print("\n[Plot C] Overlay + scatter …", flush=True)
-    fig = plt.figure(figsize=(14, 16))
+    fig = plt.figure(figsize=(14, 17))
     gs  = fig.add_gridspec(4, 2,
                            height_ratios=[1, 1, 1, 1.2],
-                           hspace=0.38, wspace=0.30,
-                           top=0.91, bottom=0.06,
+                           hspace=0.45, wspace=0.30,
+                           top=0.90, bottom=0.06,
                            left=0.09, right=0.97)
 
     fig.suptitle(
@@ -393,7 +393,14 @@ def plot_option_c(n_gpu, n_sched, n_ctx, n_act,
     ax_sc1   = fig.add_subplot(gs[3, 0])
     ax_sc2   = fig.add_subplot(gs[3, 1])
 
-    # ── Rows 1-3: same as Option B (compact) ─────────────────────────────────
+    # Shared X-axis label explaining normalisation — added to each time-series panel
+    XAXIS_LABEL = (
+        "Elapsed time within each independent run (seconds from t = 0)\n"
+        "[ Native run and Container run were recorded separately — "
+        "both are shifted to t = 0 for side-by-side comparison ]"
+    )
+
+    # ── Rows 1-3 ─────────────────────────────────────────────────────────────
     for (gpu, sched, ctx, act, color, light, label) in [
         (n_gpu, n_sched, n_ctx, n_act, NC, NL, "Native"),
         (c_gpu, c_sched, c_ctx, c_act, CC, CL, "Container"),
@@ -415,29 +422,59 @@ def plot_option_c(n_gpu, n_sched, n_ctx, n_act,
         ax_ctx.plot(ctx["t_bin"], smooth(ctx["ctx_per_sec"]),
                     color=color, lw=2.2, label=label)
 
-        # active window
+        # Shade active training window + vertical markers with labels
         for ax in [ax_gpu, ax_sched, ax_ctx]:
-            ax.axvspan(act[0], act[1], color=color, alpha=0.06, zorder=0)
+            ax.axvspan(act[0], act[1], color=color, alpha=0.10, zorder=0)
+            ax.axvline(act[0], color=color, lw=1.2, ls=":", alpha=0.7)
+            ax.axvline(act[1], color=color, lw=1.2, ls=":", alpha=0.7)
 
-    ax_gpu.set_ylim(0, 105)
+        # Label the training window on the GPU panel only (keeps it uncluttered)
+        ypos = 102 if color == NC else 95
+        ax_gpu.annotate(
+            f"{label}\ntraining\n{act[0]:.0f}s – {act[1]:.0f}s",
+            xy=((act[0] + act[1]) / 2, ypos),
+            ha="center", va="top", fontsize=7.5, color=color,
+            bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=color,
+                      alpha=0.85, lw=0.8),
+        )
+
+    ax_gpu.set_ylim(0, 110)
     ax_gpu.set_ylabel("GPU 0 Util (%)", fontsize=10)
     ax_gpu.legend(loc="upper left", fontsize=9, framealpha=0.8)
-    ax_gpu.set_title("① GPU Utilisation", fontsize=11, fontweight="bold")
+    ax_gpu.set_title(
+        "① GPU Utilisation  —  two separate runs, both time-shifted to t = 0",
+        fontsize=11, fontweight="bold"
+    )
     ax_gpu.grid(True, alpha=0.25, axis="y")
     ax_gpu.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
+    ax_gpu.set_xlabel(XAXIS_LABEL, fontsize=8.5, color="#444444", labelpad=6)
+
+    # Prominent note box inside the GPU panel
+    ax_gpu.text(
+        0.99, 0.97,
+        "⚠  These runs did NOT happen simultaneously.\n"
+        "    Native was run first, then Container separately.\n"
+        "    Both X-axes are independently shifted to t = 0\n"
+        "    so the profiles can be compared directly.",
+        transform=ax_gpu.transAxes,
+        va="top", ha="right", fontsize=8,
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFF9C4",
+                  edgecolor="#F9A825", alpha=0.95, lw=1.2),
+    )
 
     ax_sched.set_ylim(0, sched_max * 1.15)
     ax_sched.set_ylabel("Sched Latency (μs)", fontsize=10)
     ax_sched.legend(loc="upper right", fontsize=9, framealpha=0.8)
-    ax_sched.set_title("② CPU Scheduler Wakeup Latency  (mean + P95 band)",
+    ax_sched.set_title("② CPU Scheduler Wakeup Latency  (mean + P95 band, 1 s bins)",
                        fontsize=11, fontweight="bold")
     ax_sched.grid(True, alpha=0.25, axis="y")
+    ax_sched.set_xlabel(XAXIS_LABEL, fontsize=8.5, color="#444444", labelpad=6)
 
     ax_ctx.set_ylim(0, ctx_max)
     ax_ctx.set_ylabel("Ctx Switches / sec", fontsize=10)
-    ax_ctx.set_xlabel("Time (seconds from start of monitoring)", fontsize=10)
+    ax_ctx.set_xlabel(XAXIS_LABEL, fontsize=8.5, color="#444444", labelpad=6)
     ax_ctx.legend(loc="upper right", fontsize=9, framealpha=0.8)
-    ax_ctx.set_title("③ Context Switch Rate", fontsize=11, fontweight="bold")
+    ax_ctx.set_title("③ Context Switch Rate  (1 s bins)", fontsize=11, fontweight="bold")
     ax_ctx.grid(True, alpha=0.25, axis="y")
 
     # ── Scatter 1: Sched latency vs GPU util ─────────────────────────────────
