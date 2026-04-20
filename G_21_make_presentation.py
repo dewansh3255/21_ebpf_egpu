@@ -355,7 +355,7 @@ def slide_background(num):
         ("PyTorch DDP",
          ["Data Parallelism: each GPU holds full model replica",
           "AllReduce aggregates gradients after each backward pass",
-          "NCCL: NVLink/PCIe on single-server",
+          "NCCL: PCIe on single-server",
           "Gloo/TCP: cross-node gradient sync over sockets",
           "No PyTorch/NCCL source modification needed"]),
     ]
